@@ -1,24 +1,21 @@
 from fastapi import APIRouter, Request
-
+from . import infer
 from linebot import LineBotApi, WebhookHandler
 from linebot.exceptions import InvalidSignatureError
-from linebot.models import MessageEvent, TextMessage, TextSendMessage, ImageMessage
-
-from aift import setting
-from aift.multimodal import textqa
-from aift.image.classification import maskdetection
-
-from datetime import datetime
-
+from linebot.models import MessageEvent, TextSendMessage, ImageMessage
+import PIL
 router = APIRouter(tags=[""])
 
-AIFORTHAI_APIKEY = ""
+
 LINE_CHANNEL_ACCESS_TOKEN = ""
 LINE_CHANNEL_SECRET = ""
 
-setting.set_api_key(AIFORTHAI_APIKEY)
+
 line_bot_api = LineBotApi(LINE_CHANNEL_ACCESS_TOKEN)  # CHANNEL_ACCESS_TOKEN
 handler = WebhookHandler(LINE_CHANNEL_SECRET)  # CHANNEL_SECRET
+
+
+session, mode, config = infer.get_onnx_session('model-onnx')
 
 
 @router.post("/message")
@@ -34,26 +31,6 @@ async def hello_word(request: Request):
     return "OK"
 
 
-@handler.add(MessageEvent, message=TextMessage)
-def handle_text_message(event):
-    # session id
-    current_time = datetime.now()
-    # extract day, month, hour, and minute
-    day, month = current_time.day, current_time.month
-    hour, minute = current_time.hour, current_time.minute
-    # adjust the minute to the nearest lower number divisible by 10
-    adjusted_minute = minute - (minute % 10)
-    result = f"{day:02}{month:02}{hour:02}{adjusted_minute:02}"
-
-    # aiforthai multimodal chat
-    text = textqa.chat(
-        event.message.text, result + AIFORTHAI_APIKEY, temperature=0.6, context=""
-    )["response"]
-
-    # return text response
-    send_message(event, text)
-
-
 @handler.add(MessageEvent, message=ImageMessage)
 def handle_image_message(event):
     message_id = event.message.id
@@ -64,9 +41,11 @@ def handle_image_message(event):
         for chunk in image_content.iter_content():
             f.write(chunk)
 
-    # aiforthai maskdetection
-    result = maskdetection.analyze("image.jpg", return_json=False)
-    result = result[0]["result"]
+    # NomadML Inference section
+    with PIL.Image.open("image.jpg") as _img:
+        _img = infer.resize_keep_ratio(_img)
+        res = infer.predict_image_onnx(session, mode, config, _img, 0.8)
+    result = res
 
     # return text response
     send_message(event, result)

@@ -163,3 +163,5 @@ cython_debug/
 
 # DS Store
 .DS_Store
+
+model-onnx

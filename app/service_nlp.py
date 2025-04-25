@@ -337,4 +337,16 @@ def translate_xiaofan(text, direction):
     response = requests.post(url, headers=headers, data=payload)
     return response.json()['translated_text']  # or response.text if you prefer raw
 
+# Function call Text summarization
+def callTextSummarization(content):
+    url = 'http://api.aiforthai.in.th/textsummarize'
+    headers = {'Apikey': cfg.AIFORTHAI_APIKEY, 'Content-Type': 'application/json'}
+    params = json.dumps([{"id": 100, "comp_rate": 30, "src": content}])
+    response = requests.post(url, data=params, headers=headers)
+    txt = response.text
+    text_sum = bytes(txt, "utf-8").decode("unicode_escape")
+    return text_sum
+
+
+    
 # End of  file
